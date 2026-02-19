@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>文字ドロー — Practica escritura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #0b0b0e;
+  --surface: #141418;
+  --s2:      #1c1c22;
+  --border:  #27272f;
+  --b2:      #35353f;
+  --accent:  #f0c93a;
+  --accent2: #f07a3a;
+  --green:   #3aecaa;
+  --red:     #ec3a68;
+  --text:    #ede9e3;
+  --muted:   #6a6a78;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: 'Space Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px 52px;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 0%,   #201e08 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 100%,  #080b1a 0%, transparent 60%);
+}
+
+/* ── Header ── */
+header {
+  width: 100%; max-width: 480px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.logo {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700;
+  font-size: clamp(28px, 7vw, 40px);
+  line-height: 1; margin-bottom: 4px;
+  background: linear-gradient(120deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.tagline { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 4px;
+  width: 100%; max-width: 360px;
+  margin-bottom: 14px;
+}
+.tab {
+  flex: 1; padding: 9px 0;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: 0.3px;
+  cursor: pointer; transition: background .2s, color .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab.active { background: var(--accent); color: #000; font-weight: 700; }
+
+/* ── Card ── */
+.card {
+  width: 100%; max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px; overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* ── Prompt ── */
+.prompt-section {
+  padding: 20px 24px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.prompt-eyebrow {
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+}
+.sound-prompt {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(36px, 11vw, 56px);
+  font-weight: 700; color: var(--accent);
+  line-height: 1; letter-spacing: -1px;
+}
+.sound-prompt.flash { animation: flash .3s ease; }
+@keyframes flash {
+  from { opacity: 0; transform: scale(.9); }
+  to   { opacity: 1; transform: scale(1);  }
+}
+
+/* ── Canvas ── */
+.canvas-section { padding: 14px 14px 0; }
+
+.canvas-wrap {
+  position: relative; width: 100%; aspect-ratio: 1/1;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--b2);
+  background: #0f0f14; cursor: crosshair;
+  -webkit-user-select: none; user-select: none;
+}
+/* thirds grid */
+.canvas-wrap::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 33.333% 33.333%;
+  pointer-events: none; z-index: 1; opacity: .35;
+}
+/* center cross */
+.canvas-wrap::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: linear-gradient(var(--b2) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--b2) 1px, transparent 1px);
+  background-size: 50% 50%;
+  pointer-events: none; z-index: 1; opacity: .6;
+}
+#canvas {
+  position: relative; z-index: 2;
+  width: 100%; height: 100%; display: block;
+  touch-action: none;
+}
+.ghost-overlay {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  opacity: 0; transition: opacity .35s;
+}
+.ghost-overlay.show { opacity: 1; }
+.ghost-char {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: clamp(100px, 35vw, 180px);
+  color: var(--accent); opacity: .18;
+  line-height: 1; user-select: none;
+}
+
+/* ── Toolbar ── */
+.canvas-toolbar {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px 12px; gap: 8px;
+}
+.tool-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-family: 'Space Mono', monospace;
+  font-size: 10px; padding: 7px 14px; border-radius: 8px;
+  cursor: pointer; transition: border-color .15s, color .15s;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.tool-btn:active { border-color: var(--text); color: var(--text); }
+.toolbar-right { display: flex; align-items: center; gap: 12px; }
+.range-wrap { display: flex; align-items: center; gap: 6px; }
+.range-label { font-size: 9px; color: var(--muted); white-space: nowrap; }
+#brush-size { width: 60px; accent-color: var(--accent); cursor: pointer; }
+
+/* toggle */
+.toggle-label {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.toggle-label > span { font-size: 9px; color: var(--muted); }
+.toggle-track { position: relative; width: 34px; height: 18px; flex-shrink: 0; }
+.toggle-track input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-thumb {
+  position: absolute; inset: 0; background: var(--b2);
+  border-radius: 18px; transition: background .2s;
+}
+.toggle-thumb::before {
+  content: ''; position: absolute;
+  width: 12px; height: 12px; left: 3px; top: 3px;
+  background: var(--muted); border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.toggle-track input:checked ~ .toggle-thumb { background: rgba(240,201,58,.25); }
+.toggle-track input:checked ~ .toggle-thumb::before {
+  transform: translateX(16px); background: var(--accent);
+}
+
+/* ── Reveal zone ── */
+.reveal-zone {
+  border-top: 1px solid var(--border);
+  padding: 16px 14px 22px;
+}
+.reveal-btn {
+  width: 100%; padding: 15px;
+  background: var(--s2); border: 1.5px solid var(--b2);
+  border-radius: 14px; color: var(--text);
+  font-family: 'Space Mono', monospace; font-size: 13px;
+  cursor: pointer; transition: border-color .2s, color .2s, background .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.reveal-btn:active { border-color: var(--accent); color: var(--accent); background: rgba(240,201,58,.05); }
+.reveal-btn.hidden { display: none; }
+
+/* answer */
+.answer-reveal {
+  display: none; flex-direction: column;
+  align-items: center; gap: 4px;
+  padding: 10px 0 4px;
+  animation: popUp .28s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popUp {
+  from { opacity: 0; transform: scale(.75); }
+  to   { opacity: 1; transform: scale(1);   }
+}
+.answer-reveal.show { display: flex; }
+.answer-char {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: clamp(70px, 22vw, 108px);
+  font-weight: 300; line-height: 1;
+  color: var(--text); transition: color .25s;
+}
+.answer-char.is-yes { color: var(--green); }
+.answer-char.is-no  { color: var(--red); }
+.answer-sub {
+  font-size: 10px; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase; margin-top: 2px;
+}
+
+/* eval row */
+.eval-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-top: 14px;
+  visibility: hidden; opacity: 0;
+  pointer-events: none; transform: translateY(6px);
+  transition: opacity .25s, transform .25s;
+}
+.eval-row.show {
+  visibility: visible; opacity: 1;
+  pointer-events: all; transform: translateY(0);
+}
+.eval-btn {
+  padding: 16px 8px; border-radius: 14px;
+  border: 1.5px solid; font-family: 'Space Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; line-height: 1.4;
+  transition: background .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.eval-btn:active { transform: scale(.97); }
+.eval-btn:disabled { cursor: default; opacity: .45; }
+.yes-btn { border-color: var(--green); background: rgba(58,236,170,.07); color: var(--green); }
+.yes-btn:not(:disabled):active { background: rgba(58,236,170,.18); }
+.no-btn  { border-color: var(--red);   background: rgba(236,58,104,.07); color: var(--red); }
+.no-btn:not(:disabled):active  { background: rgba(236,58,104,.18); }
+
+/* ── Next button ── */
+.next-btn {
+  display: none; width: 100%; max-width: 480px;
+  margin-top: 12px; padding: 16px;
+  background: var(--accent); color: #000;
+  border: none; border-radius: 14px;
+  font-family: 'Space Mono', monospace;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; letter-spacing: .3px;
+  transition: opacity .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.next-btn.show { display: block; }
+.next-btn:active { transform: scale(.98); opacity: .9; }
+
+/* ── Desktop ── */
+@media (min-width: 520px) {
+  body { padding: 28px 20px 64px; }
+  header { margin-bottom: 22px; }
+  .canvas-section { padding: 16px 16px 0; }
+  .canvas-toolbar { padding: 10px 4px 14px; }
+  .reveal-zone { padding: 18px 18px 26px; }
+  #brush-size { width: 80px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">文字ドロー</div>
+  <div class="tagline">Practica escritura de caracteres</div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-script="hiragana">Hiragana</button>
+  <button class="tab"        data-script="katakana">Katakana</button>
+  <button class="tab"        data-script="cyrillic">Cirílico</button>
+</div>
+
+<div class="card">
+
+  <div class="prompt-section">
+    <div class="prompt-eyebrow">Dibuja este sonido</div>
+    <div class="sound-prompt" id="sound-prompt"></div>
+  </div>
+
+  <div class="canvas-section">
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <div class="ghost-overlay" id="ghost-overlay">
+        <span class="ghost-char" id="ghost-char"></span>
+      </div>
+    </div>
+    <div class="canvas-toolbar">
+      <button class="tool-btn" id="clear-btn">✕ Borrar</button>
+      <div class="toolbar-right">
+        <div class="range-wrap">
+          <span class="range-label">grosor</span>
+          <input type="range" id="brush-size" min="3" max="22" value="8">
+        </div>
+        <label class="toggle-label">
+          <span>guía</span>
+          <div class="toggle-track">
+            <input type="checkbox" id="hint-toggle">
+            <div class="toggle-thumb"></div>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="reveal-zone">
+    <button class="reveal-btn" id="reveal-btn">👁 Revelar carácter</button>
+    <div class="answer-reveal" id="answer-reveal">
+      <div class="answer-char" id="answer-char"></div>
+      <div class="answer-sub">¿Lo tenías?</div>
+    </div>
+    <div class="eval-row" id="eval-row">
+      <button class="eval-btn yes-btn" id="yes-btn">✓ Sí, correcto</button>
+      <button class="eval-btn no-btn"  id="no-btn">✗ Me equivoqué</button>
+    </div>
+  </div>
+
+</div>
+
+<button class="next-btn" id="next-btn">Siguiente →</button>
+
+<script>
+const DATA = {
+  hiragana: [
+    {c:'あ',r:'/a/'},{c:'い',r:'/i/'},{c:'う',r:'/u/'},{c:'え',r:'/e/'},{c:'お',r:'/o/'},
+    {c:'か',r:'/ka/'},{c:'き',r:'/ki/'},{c:'く',r:'/ku/'},{c:'け',r:'/ke/'},{c:'こ',r:'/ko/'},
+    {c:'さ',r:'/sa/'},{c:'し',r:'/shi/'},{c:'す',r:'/su/'},{c:'せ',r:'/se/'},{c:'そ',r:'/so/'},
+    {c:'た',r:'/ta/'},{c:'ち',r:'/chi/'},{c:'つ',r:'/tsu/'},{c:'て',r:'/te/'},{c:'と',r:'/to/'},
+    {c:'な',r:'/na/'},{c:'に',r:'/ni/'},{c:'ぬ',r:'/nu/'},{c:'ね',r:'/ne/'},{c:'の',r:'/no/'},
+    {c:'は',r:'/ha/'},{c:'ひ',r:'/hi/'},{c:'ふ',r:'/fu/'},{c:'へ',r:'/he/'},{c:'ほ',r:'/ho/'},
+    {c:'ま',r:'/ma/'},{c:'み',r:'/mi/'},{c:'む',r:'/mu/'},{c:'め',r:'/me/'},{c:'も',r:'/mo/'},
+    {c:'や',r:'/ya/'},{c:'ゆ',r:'/yu/'},{c:'よ',r:'/yo/'},
+    {c:'ら',r:'/ra/'},{c:'り',r:'/ri/'},{c:'る',r:'/ru/'},{c:'れ',r:'/re/'},{c:'ろ',r:'/ro/'},
+    {c:'わ',r:'/wa/'},{c:'を',r:'/wo/'},{c:'ん',r:'/n/'}
+  ],
+  katakana: [
+    {c:'ア',r:'/a/'},{c:'イ',r:'/i/'},{c:'ウ',r:'/u/'},{c:'エ',r:'/e/'},{c:'オ',r:'/o/'},
+    {c:'カ',r:'/ka/'},{c:'キ',r:'/ki/'},{c:'ク',r:'/ku/'},{c:'ケ',r:'/ke/'},{c:'コ',r:'/ko/'},
+    {c:'サ',r:'/sa/'},{c:'シ',r:'/shi/'},{c:'ス',r:'/su/'},{c:'セ',r:'/se/'},{c:'ソ',r:'/so/'},
+    {c:'タ',r:'/ta/'},{c:'チ',r:'/chi/'},{c:'ツ',r:'/tsu/'},{c:'テ',r:'/te/'},{c:'ト',r:'/to/'},
+    {c:'ナ',r:'/na/'},{c:'ニ',r:'/ni/'},{c:'ヌ',r:'/nu/'},{c:'ネ',r:'/ne/'},{c:'ノ',r:'/no/'},
+    {c:'ハ',r:'/ha/'},{c:'ヒ',r:'/hi/'},{c:'フ',r:'/fu/'},{c:'ヘ',r:'/he/'},{c:'ホ',r:'/ho/'},
+    {c:'マ',r:'/ma/'},{c:'ミ',r:'/mi/'},{c:'ム',r:'/mu/'},{c:'メ',r:'/me/'},{c:'モ',r:'/mo/'},
+    {c:'ヤ',r:'/ya/'},{c:'ユ',r:'/yu/'},{c:'ヨ',r:'/yo/'},
+    {c:'ラ',r:'/ra/'},{c:'リ',r:'/ri/'},{c:'ル',r:'/ru/'},{c:'レ',r:'/re/'},{c:'ロ',r:'/ro/'},
+    {c:'ワ',r:'/wa/'},{c:'ヲ',r:'/wo/'},{c:'ン',r:'/n/'}
+  ],
+  cyrillic: [
+    {c:'А',r:'/a/'},{c:'Б',r:'/b/'},{c:'В',r:'/v/'},{c:'Г',r:'/g/'},{c:'Д',r:'/d/'},
+    {c:'Е',r:'/ye/'},{c:'Ё',r:'/yo/'},{c:'Ж',r:'/zh/'},{c:'З',r:'/z/'},
+    {c:'И',r:'/i/'},{c:'Й',r:'/y/'},{c:'К',r:'/k/'},{c:'Л',r:'/l/'},{c:'М',r:'/m/'},
+    {c:'Н',r:'/n/'},{c:'О',r:'/o/'},{c:'П',r:'/p/'},{c:'Р',r:'/r/'},{c:'С',r:'/s/'},
+    {c:'Т',r:'/t/'},{c:'У',r:'/u/'},{c:'Ф',r:'/f/'},{c:'Х',r:'/kh/'},{c:'Ц',r:'/ts/'},
+    {c:'Ч',r:'/ch/'},{c:'Ш',r:'/sh/'},{c:'Щ',r:'/shch/'},
+    {c:'Ъ',r:'/ʺ/'},{c:'Ы',r:'/ɨ/'},{c:'Ь',r:'/ʹ/'},
+    {c:'Э',r:'/e/'},{c:'Ю',r:'/yu/'},{c:'Я',r:'/ya/'}
+  ]
+};
+
+/* ── Canvas ── */
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvas-wrap');
+
+function resizeCanvas() {
+  const w = wrap.clientWidth;
+  if (canvas.width === w) return;
+  canvas.width = canvas.height = w;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+let drawing = false, lx = 0, ly = 0;
+
+function ptOf(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width / r.width, sy = canvas.height / r.height;
+  const s = e.touches ? e.touches[0] : e;
+  return [(s.clientX - r.left) * sx, (s.clientY - r.top) * sy];
+}
+function drawLine(x, y) {
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y);
+  ctx.lineWidth = +document.getElementById('brush-size').value;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#ede9e3';
+  ctx.stroke();
+  [lx, ly] = [x, y];
+}
+
+canvas.addEventListener('mousedown',  e => { drawing = true;  [lx,ly] = ptOf(e); });
+canvas.addEventListener('mousemove',  e => { if (!drawing) return; e.preventDefault(); const [x,y]=ptOf(e); drawLine(x,y); });
+canvas.addEventListener('mouseup',    () => drawing = false);
+canvas.addEventListener('mouseleave', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; [lx,ly] = ptOf(e); }, {passive:false});
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (!drawing) return; const [x,y]=ptOf(e); drawLine(x,y); }, {passive:false});
+canvas.addEventListener('touchend',   () => drawing = false);
+
+document.getElementById('clear-btn').addEventListener('click', () =>
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+);
+document.getElementById('hint-toggle').addEventListener('change', e =>
+  document.getElementById('ghost-overlay').classList.toggle('show', e.target.checked)
+);
+
+/* ── State ── */
+let currentScript = 'hiragana';
+let current = null;
+let revealed = false;
+let evaluated = false;
+
+function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+/* ── LOAD QUESTION — resets everything completely ── */
+function loadQuestion() {
+  revealed = evaluated = false;
+  current = rand(DATA[currentScript]);
+
+  /* prompt flash */
+  const sp = document.getElementById('sound-prompt');
+  sp.classList.remove('flash');
+  void sp.offsetWidth;
+  sp.textContent = current.r;
+  sp.classList.add('flash');
+
+  /* canvas */
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  /* ghost */
+  document.getElementById('ghost-char').textContent = current.c;
+  document.getElementById('ghost-overlay').classList.remove('show');
+  document.getElementById('hint-toggle').checked = false;
+
+  /* reveal button */
+  document.getElementById('reveal-btn').classList.remove('hidden');
+
+  /* answer reveal */
+  const ar = document.getElementById('answer-reveal');
+  ar.classList.remove('show');
+  const ac = document.getElementById('answer-char');
+  ac.textContent = '';
+  ac.className = 'answer-char';   // strip is-yes / is-no
+
+  /* eval row — *** key fix: re-enable buttons *** */
+  const er = document.getElementById('eval-row');
+  er.classList.remove('show');
+  const yb = document.getElementById('yes-btn');
+  const nb = document.getElementById('no-btn');
+  yb.disabled = false;
+  nb.disabled = false;
+
+  /* next */
+  document.getElementById('next-btn').classList.remove('show');
+}
+
+/* ── Reveal ── */
+document.getElementById('reveal-btn').addEventListener('click', () => {
+  if (revealed) return;
+  revealed = true;
+  document.getElementById('reveal-btn').classList.add('hidden');
+  document.getElementById('answer-char').textContent = current.c;
+  document.getElementById('answer-reveal').classList.add('show');
+  setTimeout(() => document.getElementById('eval-row').classList.add('show'), 200);
+});
+
+/* ── Self-eval ── */
+function onEval(result) {
+  if (!revealed || evaluated) return;
+  evaluated = true;
+  document.getElementById('answer-char').classList.add(result === 'yes' ? 'is-yes' : 'is-no');
+  document.getElementById('yes-btn').disabled = true;
+  document.getElementById('no-btn').disabled  = true;
+  document.getElementById('next-btn').classList.add('show');
+}
+
+document.getElementById('yes-btn').addEventListener('click', () => onEval('yes'));
+document.getElementById('no-btn').addEventListener('click',  () => onEval('no'));
+document.getElementById('next-btn').addEventListener('click', loadQuestion);
+
+/* ── Tabs ── */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentScript = tab.dataset.script;
+    loadQuestion();
+  });
+});
+
+loadQuestion();
+</script>
+</body>
+</html>
